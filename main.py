@@ -1,161 +1,205 @@
-#Lighted  led intensiti value
-on_led_value = 255
-
-# Create tetris grid
-grid = [[1, 0, 0, 0, 0, 0, 1], [1, 0, 0, 0, 0, 0, 1], [1, 0, 0, 0, 0, 0, 1], [1, 0, 0, 0, 0, 0, 1],
-        [1, 0, 0, 0, 0, 0, 1], [1, 1, 1, 1, 1, 1, 1]]
-
-# Store a list of 4 bricks, each brick is a 2x2 grid
-bricks = [[on_led_value, on_led_value], [on_led_value, 0]], [[on_led_value, on_led_value], [0, on_led_value]], [[on_led_value, on_led_value], [on_led_value, on_led_value]], [[on_led_value, on_led_value], [0, 0]]
-
-# random select first brick
-brick = bricks[randint(0, bricks.length)]
-
-x = 3
-y = 0
-frameCount = 0
 
 
-# A function to return the maximum of two values
-def max(a, b):
-    if a >= b:
-        return a
-    else:
-        return b
 
+def changeLedState (NewState):
+    if NewState is True : #Show the current block
+        if x_position > 0 and x_position < 5:
+            led.plot_brightness(x_position - 1, y_position, max(block[0][0], tetris[y_position][x_position]))
+        if x_position > 0 and x_position < 5:
+            led.plot_brightness((x_position - 1) + 1, y_position, max(block[0][1], tetris[y_position][x_position + 1]))
+        if x_position > 0 and y_position < 4:
+            led.plot_brightness(x_position - 1, y_position + 1, max(block[1][0], tetris[y_position + 1][x_position]))
+        if x_position < 5 and y_position < 4:
+            led.plot_brightness((x_position - 1) + 1, y_position + 1, max(block[1][1], tetris[y_position + 1][x_position + 1]))
+    else: #Hide the current block
+        if x_position > 0 and x_position < 5:
+            led.plot_brightness(x_position - 1, y_position, tetris[y_position][x_position])
+        if x_position > 0 and x_position < 5:
+            led.plot_brightness((x_position - 1) + 1, y_position, tetris[y_position][x_position + 1])
+        if x_position > 0 and y_position < 4:
+            led.plot_brightness(x_position - 1, y_position + 1, tetris[y_position + 1][x_position])
+        if x_position < 5 and y_position < 4:
+            led.plot_brightness((x_position - 1) + 1, y_position + 1, tetris[y_position + 1][x_position + 1])
+    pass
 
-# A function to hide the 2x2 brick on the LED screen
-def hideBrick():
-    if x > 0:
-        led.plot_brightness(x - 1, y, grid[y][x])
-    if x < 5:
-        led.plot_brightness(x + 1 - 1, y, grid[y][x + 1])
-    if x > 0 and y < 4:
-        led.plot_brightness(x - 1, y + 1, grid[y + 1][x])
-    if x < 5 and y < 4:
-        led.plot_brightness(x + 1 - 1, y + 1, grid[y + 1][x + 1])
+# Apply the rotation to the current block position
+def rotateblock():
+    #Check if the rotation is possible at least one of the cells of the block is not null
+    if not (
+            (tetris[y_position][x_position] > 0 and block[0][0] > 0)
+            or (tetris[y_position + 1][x_position] > 0 and block[1][0] > 0)
+            or (tetris[y_position][x_position + 1] > 0 and block[0][1] > 0)
+            or (tetris[y_position + 1][x_position + 1] > 0 and block[1][1] > 0)
+    ):
+        #Hide the block to apply the rotation
+        #hideblock()
+        changeLedState(False)
+        #Aplly the rotation
+        block00 = block[0][0]
+        block[0][0] = block[1][0]
+        block[1][0] = block[1][1]
+        block[1][1] = block[0][1]
+        block[0][1] = block00
+        #showblock()
+        changeLedState(True)
 
-
-# A function to show the 2x2 brick on the LED screen
-def showBrick():
-    if x > 0:
-        led.plot_brightness(x - 1, y, max(brick[0][0], grid[y][x]))
-    if x < 5:
-        led.plot_brightness(x + 1 - 1, y, max(brick[0][1], grid[y][x + 1]))
-    if x > 0 and y < 4:
-        led.plot_brightness(x - 1, y + 1, max(brick[1][0], grid[y + 1][x]))
-    if x < 5 and y < 4:
-        led.plot_brightness(x + 1 - 1, y + 1, max(brick[1][1], grid[y + 1][x + 1]))
-
-
-# A function to rotate the 2x2 brick
-def rotateBrick():
-    pixel00 = brick[0][0]
-    pixel01 = brick[0][1]
-    pixel10 = brick[1][0]
-    pixel11 = brick[1][1]
-    # Check if the rotation is possible
-    if not ((grid[y][x] > 0 and pixel00 > 0) or (grid[y + 1][x] > 0 and pixel10 > 0) or (
-            grid[y][x + 1] > 0 and pixel01 > 0) or (grid[y + 1][x + 1] > 0 and pixel11 > 0)):
-        hideBrick()
-        brick[0][0] = pixel10
-        brick[1][0] = pixel11
-        brick[1][1] = pixel01
-        brick[0][1] = pixel00
-        showBrick()
-
-
-# A function to move/translate the brick
-def moveBrick(delta_x, delta_y):
-    global x, y
+#Move the block in the tetris x_position (left and right) and y_position(down)
+def moveBlock(x_move, y_move):
+    global x_position, y_position
     move = False
-    # Check if the move if possible: no collision with other blocks or borders of the grid
-    if delta_x == -1 and x > 0:
-        if not ((grid[y][x - 1] > 0 and brick[0][0] > 0) or (grid[y][x + 1 - 1] > 0 and brick[0][1] > 0) or (
-                grid[y + 1][x - 1] > 0 and brick[1][0] > 0) or (grid[y + 1][x + 1 - 1] > 0 and brick[1][1] > 0)):
+    # Verify that the movement is possible
+    # No collision with other blocks or borders of the tetris
+    if x_move == -1 and x_position > 0:
+        if not (
+                (tetris[y_position][x_position - 1] > 0 and block[0][0] > 0)
+                or (tetris[y_position][x_position + 1 - 1] > 0 and block[0][1] > 0)
+                or (tetris[y_position + 1][x_position - 1] > 0 and block[1][0] > 0)
+                or (tetris[y_position + 1][x_position + 1 - 1] > 0 and block[1][1] > 0)
+        ):
             move = True
-    elif delta_x == 1 and x < 5:
-        if not ((grid[y][x + 1] > 0 and brick[0][0] > 0) or (grid[y][x + 1 + 1] > 0 and brick[0][1] > 0) or (
-                grid[y + 1][x + 1] > 0 and brick[1][0] > 0) or (grid[y + 1][x + 1 + 1] > 0 and brick[1][1] > 0)):
+    elif x_move == 1 and x_position < 5:
+        if not ((tetris[y_position][x_position + 1] > 0 and block[0][0] > 0) or (tetris[y_position][x_position + 1 + 1] > 0 and block[0][1] > 0) or (
+                tetris[y_position + 1][x_position + 1] > 0 and block[1][0] > 0) or (tetris[y_position + 1][x_position + 1 + 1] > 0 and block[1][1] > 0)):
             move = True
-    elif delta_y == 1 and y < 4:
-        if not ((grid[y + 1][x] > 0 and brick[0][0] > 0) or (grid[y + 1][x + 1] > 0 and brick[0][1] > 0) or (
-                grid[y + 1 + 1][x] > 0 and brick[1][0] > 0) or (grid[y + 1 + 1][x + 1] > 0 and brick[1][1] > 0)):
+    elif y_move == 1 and y_position < 4:
+        if not ((tetris[y_position + 1][x_position] > 0 and block[0][0] > 0) or (tetris[y_position + 1][x_position + 1] > 0 and block[0][1] > 0) or (
+                tetris[y_position + 1 + 1][x_position] > 0 and block[1][0] > 0) or (tetris[y_position + 1 + 1][x_position + 1] > 0 and block[1][1] > 0)):
             move = True
-    # If the move is possible, update x,y coordinates of the brick
-    if move:
-        hideBrick()
-        x += delta_x
-        y += delta_y
-        showBrick()
+    # If the movement is possible you can update the new value of the x_position and y_position of the block
 
-    # Return True or False to confirm if the move took place
+    if move:
+        changeLedState(False)
+        #hideblock()
+        x_position += x_move
+        y_position += y_move
+        changeLedState(True)
+
+    # Return True or False to confirm if the move is possible
     return move
 
 
-# A function to check for and remove completed lines
-def checkLines():
+def moveblockLeft():
+    x_move = -1
+    y_move = 0
+    moveBlock(x_move, y_move)
+
+
+def moveblockRight():
+    x_move = 1
+    y_move = 0
+    return moveBlock(x_move, y_move)
+
+def moveblockDown():
+    x_move = 0
+    y_move = 1
+    return moveBlock(x_move, y_move)
+
+# Check the lines of the tetris if any of them is completed
+def checkCompletedLines():
     global score
     removeLine = False
+
     # check each line one at a time
     for i in range(0, 5):
-        if (grid[i][1] + grid[i][2] + grid[i][3] + grid[i][4] + grid[i][5]) == on_led_value * 5:
+        # If a line is completed then the score must be incremented and the line must be removed
+        if (tetris[i][1] + tetris[i][2] + tetris[i][3] + tetris[i][4] + tetris[i][5]) == on_led_value * 5:
             removeLine = True
-            # Increment the score (10 pts per line)
-            score += 10
+            # Increment the score
+            score += winingScore
             # Remove the line and make all lines above fall by 1:
             for j in range(i, 0, -1):
-                grid[j] = grid[j - 1]
-            grid[0] = [1, 0, 0, 0, 0, 0, 1]
+                for k in range(0,5):
+                    tetris[j][k] = tetris[j - 1][k]
+            tetris[0] = [1, 0, 0, 0, 0, 0, 1]
     if removeLine:
         # Refresh the LED screen
         for i in range(0, 5):
             for j in range(0, 5):
-                led.plot_brightness(i, j, grid[j][i + 1])
+                led.plot_brightness(i, j, tetris[j][i + 1])
     return removeLine
+
+def play_music():
+    music.start_melody(music.built_in_melody(Melodies.DADADADUM))
+
+def init_game():
+    #Starting Text 
+    basic.show_number(3)
+    basic.show_number(2)
+    basic.show_number(1)
+    basic.show_string("GO")
+
+    # init sensors events --------------------------------------------
+
+    # Touch logo sensors event
+    input.on_logo_event(TouchButtonEvent.PRESSED, rotateblock)
+
+    # buttons  event
+    input.on_button_pressed(Button.A, moveblockLeft)
+    input.on_button_pressed(Button.B, moveblockRight)
+    play_music()
+    # --------------------------------------------
+
+
+
+#Programe Starting -------------------------------------------->>>>>>>>>>>>
+init_game()
+#Max intencity of the led
+on_led_value = 255
+#Score added on line completed
+winingScore = 10
+# Create my tetris 6 x_position 6 array with borders defined by value = 1
+tetris = [[1, 0, 0, 0, 0, 0, 1], [1, 0, 0, 0, 0, 0, 1], [1, 0, 0, 0, 0, 0, 1], [1, 0, 0, 0, 0, 0, 1],
+          [1, 0, 0, 0, 0, 0, 1], [1, 1, 1, 1, 1, 1, 1]]
+
+# Create generated game block possibility
+blocks = [[on_led_value, on_led_value], [on_led_value, 0]], [[on_led_value, on_led_value], [0, on_led_value]], [
+    [on_led_value, on_led_value], [on_led_value, on_led_value]], [[on_led_value, on_led_value], [0, 0]]
+
+# Select randomly the block at this
+#You must note that x_position position on the tetris array represente the led position + 1
+# (Tetris is 6 x_position 6 array vs Leds 5 x_position 5 array)
+block = blocks[randint(0, blocks.length)]
+
+# Initial position of the first block
+x_position = 2
+y_position = 0
+coutFrame = 0
 
 
 gameOn = True
 score = 0
-showBrick()
-
+changeLedState(True)
 # Main Program Loop - iterates every 50ms
-
 while gameOn:
     basic.pause(50)
-    frameCount += 1
+    coutFrame += 1
     # Capture user inputs
 
-    if input.button_is_pressed(Button.A) and input.button_is_pressed(Button.B):
-        rotateBrick()
-    elif input.button_is_pressed(Button.A):
-        moveBrick(-1, 0)
-    elif input.button_is_pressed(Button.B):
-        moveBrick(1, 0)
+    # Every 15 frames try to move the block down
+    if coutFrame == 15 and moveblockDown() == False:
+        coutFrame = 0
+        # The move was not possible, the block stays in position
+        tetris[y_position][x_position] = max(block[0][0], tetris[y_position][x_position])
+        tetris[y_position][x_position + 1] = max(block[0][1], tetris[y_position][x_position + 1])
+        tetris[y_position + 1][x_position] = max(block[1][0], tetris[y_position + 1][x_position])
+        tetris[y_position + 1][x_position + 1] = max(block[1][1], tetris[y_position + 1][x_position + 1])
 
-    # Every 15 frames try to move the brick down
-    if frameCount == 15 and moveBrick(0, 1) == False:
-        frameCount = 0
-        # The move was not possible, the brick stays in position
-        grid[y][x] = max(brick[0][0], grid[y][x])
-        grid[y][x + 1] = max(brick[0][1], grid[y][x + 1])
-        grid[y + 1][x] = max(brick[1][0], grid[y + 1][x])
-        grid[y + 1][x + 1] = max(brick[1][1], grid[y + 1][x + 1])
-
-        if checkLines() == False and y == 0:
-            # The brick has reached the top of the grid - Game Over
+        if checkCompletedLines() == False and y_position == 0:
+            # The block has reached the top of the tetris - Game Over
             gameOn = False
         else:
-            # select a new brick randomly
-            x = 3
-            y = 0
-            brick = bricks[randint(0, bricks.length)]
-            showBrick()
+            # select a new block randomly
+            x_position = 3
+            y_position = 0
+            # random select first block
+            block = blocks[randint(0, blocks.length)]
+            changeLedState(True)
 
-    if frameCount == 15:
-        frameCount = 0
+    if coutFrame == 15:
+        coutFrame = 0
 
 # End of Game
 pause(2000)
-#game.game_over()
-basic.show_string("Game Over: Score: " + str(score))
+game.game_over()
+basic.show_string("Score: " + str(score))
+
