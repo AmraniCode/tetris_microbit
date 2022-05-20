@@ -1,20 +1,22 @@
-
-
-
 def changeLedState (NewState):
+    global x_position
+    global y_position
+    global tetris
+    global block
+    
     if NewState is True : #Show the current block
-        if x_position > 0 and x_position < 5:
+        if x_position > 0 :
             led.plot_brightness(x_position - 1, y_position, max(block[0][0], tetris[y_position][x_position]))
-        if x_position > 0 and x_position < 5:
+        if x_position < 5:
             led.plot_brightness((x_position - 1) + 1, y_position, max(block[0][1], tetris[y_position][x_position + 1]))
         if x_position > 0 and y_position < 4:
             led.plot_brightness(x_position - 1, y_position + 1, max(block[1][0], tetris[y_position + 1][x_position]))
         if x_position < 5 and y_position < 4:
             led.plot_brightness((x_position - 1) + 1, y_position + 1, max(block[1][1], tetris[y_position + 1][x_position + 1]))
     else: #Hide the current block
-        if x_position > 0 and x_position < 5:
+        if x_position > 0 :
             led.plot_brightness(x_position - 1, y_position, tetris[y_position][x_position])
-        if x_position > 0 and x_position < 5:
+        if x_position < 5 :
             led.plot_brightness((x_position - 1) + 1, y_position, tetris[y_position][x_position + 1])
         if x_position > 0 and y_position < 4:
             led.plot_brightness(x_position - 1, y_position + 1, tetris[y_position + 1][x_position])
@@ -24,6 +26,10 @@ def changeLedState (NewState):
 
 # Apply the rotation to the current block position
 def rotateblock():
+    global x_position
+    global y_position
+    global tetris
+    global block
     #Check if the rotation is possible at least one of the cells of the block is not null
     if not (
             (tetris[y_position][x_position] > 0 and block[0][0] > 0)
@@ -96,6 +102,10 @@ def moveblockDown():
 
 # Check the lines of the tetris if any of them is completed
 def checkCompletedLines():
+    global x_position
+    global y_position
+    global tetris
+    global block
     global score
     removeLine = False
 
@@ -108,8 +118,7 @@ def checkCompletedLines():
             score += winingScore
             # Remove the line and make all lines above fall by 1:
             for j in range(i, 0, -1):
-                for k in range(0,5):
-                    tetris[j][k] = tetris[j - 1][k]
+                tetris[j] = tetris[j - 1]
             tetris[0] = [1, 0, 0, 0, 0, 0, 1]
     if removeLine:
         # Refresh the LED screen
@@ -121,8 +130,13 @@ def checkCompletedLines():
 def play_music():
     music.start_melody(music.built_in_melody(Melodies.DADADADUM))
 
+def on_gesture_shake():
+    control.reset()
+    pass
+
+
 def init_game():
-    #Starting Text 
+    #Starting Text
     basic.show_number(3)
     basic.show_number(2)
     basic.show_number(1)
@@ -136,7 +150,12 @@ def init_game():
     # buttons  event
     input.on_button_pressed(Button.A, moveblockLeft)
     input.on_button_pressed(Button.B, moveblockRight)
+    
+    #Microphone
     play_music()
+    
+    #geroscope
+    input.on_gesture(Gesture.SHAKE, on_gesture_shake)
     # --------------------------------------------
 
 
@@ -147,7 +166,7 @@ init_game()
 on_led_value = 255
 #Score added on line completed
 winingScore = 10
-# Create my tetris 6 x_position 6 array with borders defined by value = 1
+# Create my tetris 6 x_position 7 array with borders defined by value = 1
 tetris = [[1, 0, 0, 0, 0, 0, 1], [1, 0, 0, 0, 0, 0, 1], [1, 0, 0, 0, 0, 0, 1], [1, 0, 0, 0, 0, 0, 1],
           [1, 0, 0, 0, 0, 0, 1], [1, 1, 1, 1, 1, 1, 1]]
 
@@ -157,8 +176,8 @@ blocks = [[on_led_value, on_led_value], [on_led_value, 0]], [[on_led_value, on_l
 
 # Select randomly the block at this
 #You must note that x_position position on the tetris array represente the led position + 1
-# (Tetris is 6 x_position 6 array vs Leds 5 x_position 5 array)
-block = blocks[randint(0, blocks.length)]
+# (Tetris is 7 x 6 array vs Leds 5 x 5 array)
+block = blocks[randint(0, blocks.length - 1)]
 
 # Initial position of the first block
 x_position = 2
@@ -169,14 +188,20 @@ coutFrame = 0
 gameOn = True
 score = 0
 changeLedState(True)
-# Main Program Loop - iterates every 50ms
-while gameOn:
-    basic.pause(50)
-    coutFrame += 1
-    # Capture user inputs
 
-    # Every 15 frames try to move the block down
-    if coutFrame == 15 and moveblockDown() == False:
+# Main Program Loop - iterates every 50ms
+def on_forever():
+    global gameOn
+    global x_position
+    global y_position
+    global tetris
+    global block
+    global blocks
+
+    basic.pause(750)
+
+    moveResult = moveblockDown() 
+    if moveResult == False:
         coutFrame = 0
         # The move was not possible, the block stays in position
         tetris[y_position][x_position] = max(block[0][0], tetris[y_position][x_position])
@@ -187,19 +212,21 @@ while gameOn:
         if checkCompletedLines() == False and y_position == 0:
             # The block has reached the top of the tetris - Game Over
             gameOn = False
+            #End of Game
+            pause(2000)
+            game.game_over()
+            basic.show_string("Game Over")
+            basic.show_string("Score: ")
+            basic.show_string(str(score))
         else:
             # select a new block randomly
             x_position = 3
             y_position = 0
             # random select first block
-            block = blocks[randint(0, blocks.length)]
+            block = blocks[randint(0, blocks.length - 1)]
             changeLedState(True)
 
-    if coutFrame == 15:
-        coutFrame = 0
+basic.forever(on_forever)
 
-# End of Game
-pause(2000)
-game.game_over()
-basic.show_string("Score: " + str(score))
 
+    
